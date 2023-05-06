@@ -45,14 +45,24 @@ def update_prices(df, item_column='Items', prices_column='New Prices'):
     for index, row in df.iterrows():                                    # for every item in the list:
         item_name = row[item_column]                                    # get the name of the item to search for the price
         current_price = get_price_for(item_name)                        # crawl price for item from community market
-        current_price = float(current_price[:-1].replace(",","."))      # convert price into a float for excel number representation
+        current_price = convert_to_number(current_price)                # convert price into a float for excel number representation
         df.at[index, prices_column] = current_price                     # write price of the item to the new column
+
+def convert_to_number(price:str):
+    result = price[:-1]                 # cut of the €-sign at the end
+    result = result.replace("--", "00") # replace "--" with "00" in case it's a smooth euro amount
+    result = result.replace(" ", "")    # remove empty spaces in the middle if the price is over 1000€
+    result = result.replace(",", ".")   # replace the comma with a dot to be able to make it a float
+    return float(result)                # return the result as a float
+
 
 def clean_up_item_names(df, item_column='Items'): 
     for index, row in df.iterrows():                # for every item in the list:
         item_name = row[item_column]                # get name of the item
         item_name = item_name.replace("%20", " ")   # replace all encoded spaces with actual spaces
         item_name = item_name.replace("%7C", "|")   # replace all encoded | with actual |
+        item_name = item_name.replace("%28", "(")   # replace all encoded ( with actual (
+        item_name = item_name.replace("%29", ")")   # replace all encoded ) with actual )
         df.at[index, item_column] = item_name       # write new item name to table
 
 def create_market_links(df, item_column='Items', link_column='Market Link'):
@@ -83,7 +93,7 @@ if __name__ == '__main__':
 
     # Add the arguments
     parser.add_argument('-if', '--input_file', type=str, help='Name of the input file, e.g. example.xlsx. Default is prices.xlsx.', default="prices.xlsx")
-    parser.add_argument('-of', '--output_file', type=str, help='Name of the output file, e.g. example.xlsx. Default is new_prices.xlsx.', default="new_prices.xlsx")
+    parser.add_argument('-of', '--output_file', type=str, help='Name of the output file, e.g. example.xlsx. Default is new_prices.xlsx. You can also use the same input as output file. This might however destroy some Excel specific functions and is therefore not recommended if you rely on that.', default="new_prices.xlsx")
     parser.add_argument('-i', '--item_column', type=str, help='Name of the column to crawl the item names from. Default is "Items".', default="Items")
 
     # Parse the arguments
