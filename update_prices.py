@@ -1,9 +1,10 @@
 import requests
 import json
 import pandas as pd
+import time
+import random
 from datetime import date
 import argparse
-
 
 appID = '730' # 730 for CS:GO
 currency = '3' # 3 for EURo
@@ -14,6 +15,9 @@ def get_price_for(item_name:str):
     url = f'http://steamcommunity.com/market/priceoverview/?appid={appID}&market_hash_name={item_name}&currency={currency}'
     response = requests.get(url)
 
+    sleep_time = random.random() * 5 + 5
+    time.sleep(sleep_time)
+
     if response.status_code == 200:
         data = json.loads(response.text)
         # print(data)
@@ -22,7 +26,14 @@ def get_price_for(item_name:str):
         return price
     else:
         print(f'Request failed with status code {response.status_code}')
-        return None
+        if response.status_code == 429:
+            sleep_time = random.random() * 60 + 60
+            print(f"Waiting for {sleep_time} seconds because of error 429 (Too Many Requests)")
+            print("Trying again later...")
+            time.sleep(sleep_time)
+            return get_price_for(item_name)
+        else:
+            return None
 
 
 def read_file(file_name='prices.xlsx'):
@@ -35,18 +46,28 @@ def write_file(df, file_name='new_prices.xlsx'):
     print(f'Saving table with new prices as {output_file}.')
     writer = pd.ExcelWriter(file_name)
     df.to_excel(writer, index=False)
-    writer.save()
+    writer._save()
 
 def update_prices(df, item_column='Items', prices_column='New Prices'):
     print()
     print(f'Using {item_column} as column for item names.')
     print(f'New prices will be written to column "{prices_column}"')
+    print('This programm is using random sleep times to prevent Error 429 (Too Many Requests).')
     print()
     for index, row in df.iterrows():                                    # for every item in the list:
+        # print(f'Checking item #{index}')
         item_name = row[item_column]                                    # get the name of the item to search for the price
         current_price = get_price_for(item_name)                        # crawl price for item from community market
-        current_price = convert_to_number(current_price)                # convert price into a float for excel number representation
-        df.at[index, prices_column] = current_price                     # write price of the item to the new column
+        if current_price:
+            current_price = convert_to_number(current_price)            # convert price into a float for excel number representation
+            df.at[index, prices_column] = current_price                 # write price of the item to the new column
+        else:
+            print(f"Couldn't find prices for {item_name}. Using 0€ instead.")
+            df.at[index, prices_column] = 0
+            print('Continuing with the next item...')
+        if index % 20 == 0:
+            sleep_time = random.random() * 5 + 5
+            time.sleep(sleep_time)
 
 def convert_to_number(price:str):
     result = price[:-1]                 # cut of the €-sign at the end
